@@ -34,6 +34,24 @@ def read_any(uploaded_file):
         na_filter=False,
     )
 
+def stringify_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert every cell to a display-safe string while preserving DB formatting
+    (e.g., Decimal('1.0000') -> '1.0000'). Also prevents pandas showing 1.0.
+    """
+    def _to_str(x):
+        # pandas sometimes uses NaN floats for missing values
+        if x is None:
+            return ""
+        try:
+            # handle NaN
+            if isinstance(x, float) and pd.isna(x):
+                return ""
+        except Exception:
+            pass
+        return str(x)
+    return df.applymap(_to_str)
+
 def norm_val(x):
     s = "" if x is None else str(x)
     s = s.replace("\u00A0", " ")
@@ -183,9 +201,8 @@ def compare_values_multi_unordered(src_df: pd.DataFrame, d365_df: pd.DataFrame,
                                   src_cols: list[str], d365_cols: list[str],
                                   remove_dupes: bool):
     """
-    Like single-column but with composite keys:
-      Missing in D365 (Source - D365): show SOURCE composite keys not found in D365
-      Extra in D365 (D365 - Source): show D365 composite keys not found in Source
+    Missing in D365 (Source - D365): show SOURCE composite keys not found in D365
+    Extra in D365 (D365 - Source): show D365 composite keys not found in Source
     Order does NOT matter.
     """
     src_keys, src_idx = build_index_map_multi(src_df, src_cols)
@@ -318,15 +335,18 @@ if st.button("Load Data"):
         st.error("Please fill in all SQL connection fields.")
         st.stop()
 
+    # Source: read as strings (keeps file display as the user sees it)
     try:
         st.session_state["src_df"] = read_any(src_file)
     except Exception as e:
         st.error(f"Failed to read source file: {e}")
         st.stop()
 
+    # D365: IMPORTANT - preserve DB formatting (Decimal trailing zeros, etc.)
     try:
         conn = connect(server, database, username, password)
-        st.session_state["d365_df"] = pd.read_sql(d365_query, conn)
+        raw_d365 = pd.read_sql(d365_query, conn, coerce_float=False)
+        st.session_state["d365_df"] = stringify_df(raw_d365)
     except Exception as e:
         st.error(f"SQL error: {e}")
         st.stop()
@@ -408,8 +428,8 @@ if st.session_state.get("loaded"):
         m4.metric("D365 unique", results["unique_b"])
 
         d1, d2 = st.columns(2)
-        d1.metric("Missing in D365", results["missing_count"])
-        d2.metric("Extra in D365", results["extra_count"])
+        d1.metric("In Source but Missing in D365", results["missing_count"])
+        d2.metric("In D365 but Missing in Source", results["extra_count"])
 
         st.divider()
 
@@ -508,8 +528,8 @@ if st.session_state.get("loaded"):
             d.metric("D365 unique keys", res["d365_unique"])
 
             e1, e2 = st.columns(2)
-            e1.metric("Missing in D365", res["missing_count"])
-            e2.metric("Extra in D365", res["extra_count"])
+            e1.metric("In Source but Missing in D365", res["missing_count"])
+            e2.metric("In D365 but Missing in Source", res["extra_count"])
 
             st.divider()
 
