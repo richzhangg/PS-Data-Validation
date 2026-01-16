@@ -488,7 +488,7 @@ if st.session_state.get("loaded"):
 
             res = compare_values_multi_unordered(src_df, d365_df, src_cols, d365_cols, remove_dupes)
 
-            # Build dfs for download
+            # Build for download
             missing_df = pd.DataFrame(res["missing_details"]) if res["missing_details"] else pd.DataFrame()
             extra_df = pd.DataFrame(res["extra_details"]) if res["extra_details"] else pd.DataFrame()
             summary_df = pd.DataFrame([{
