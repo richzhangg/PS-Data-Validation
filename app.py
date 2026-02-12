@@ -299,7 +299,7 @@ with st.sidebar:
 
 page = st.radio(
     "Mode",
-    ["Single Column Compare", "Multi-Column Compare (Unordered, Max 4)"],
+    ["Single Column Compare", "Multi-Column Compare (Unordered, Max 6)"],
     horizontal=True
 )
 
@@ -320,8 +320,8 @@ remove_dupes = st.checkbox(
     help="ON = unique keys only. OFF = duplicates (counts) matter."
 )
 
-if page == "Multi-Column Compare (Unordered, Max 4)":
-    num_cols = st.selectbox("How many columns to compare?", options=[2, 3, 4], index=0)
+if page == "Multi-Column Compare (Unordered, Max 6)":
+    num_cols = st.selectbox("How many columns to compare?", options=[2, 3, 4, 5, 6], index=0)
     st.info("Order does NOT matter. Matches by composite key across the dataset.")
 
 if st.button("Load Data"):
