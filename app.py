@@ -8,13 +8,14 @@ from datetime import datetime
 # =============================
 # Helpers
 # =============================
-def connect(server, database, username, password):
+def connect(server, database, username):
     return pyodbc.connect(
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
         f"SERVER={server};"
         f"DATABASE={database};"
         f"UID={username};"
-        f"PWD={password};"
+        f"Authentication=ActiveDirectoryInteractive;"
+        f"Encrypt=yes;"
     )
 
 def read_any(uploaded_file):
@@ -292,7 +293,6 @@ with st.sidebar:
     server = st.text_input("Server")
     database = st.text_input("Database")
     username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
     st.divider()
     if st.button("Reset App"):
         reset_app()
@@ -331,7 +331,7 @@ if st.button("Load Data"):
     if not d365_query.strip():
         st.error("Please paste a D365 SQL query.")
         st.stop()
-    if not (server and database and username and password):
+    if not (server and database and username):
         st.error("Please fill in all SQL connection fields.")
         st.stop()
 
@@ -344,7 +344,7 @@ if st.button("Load Data"):
 
     # D365: IMPORTANT - preserve DB formatting (Decimal trailing zeros, etc.)
     try:
-        conn = connect(server, database, username, password)
+        conn = connect(server, database, username)
         raw_d365 = pd.read_sql(d365_query, conn, coerce_float=False)
         st.session_state["d365_df"] = stringify_df(raw_d365)
     except Exception as e:
