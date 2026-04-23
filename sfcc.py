@@ -1,75 +1,44 @@
-import xml.etree.ElementTree as ET
-from openpyxl import Workbook
+import re
 from pathlib import Path
-import time
+from openpyxl import Workbook
 
-# -----------------------------
-# CHANGE FILE PATH
-# -----------------------------
 xml_file = r"C:\Users\rzhang\Downloads\SfccDropShipMasterProducts.xml"
-
 output_file = str(Path(xml_file).with_suffix(".xlsx"))
 
+text = Path(xml_file).read_text(encoding="utf-8")
 
-def get_namespace(tag):
-    if tag.startswith("{"):
-        return tag.split("}")[0] + "}"
-    return ""
+product_pattern = re.compile(
+    r'<product\s+[^>]*product-id="([^"]+)"[^>]*>(.*?)</product>',
+    re.DOTALL
+)
 
+short_desc_pattern = re.compile(
+    r'<short-description[^>]*>(.*?)</short-description>',
+    re.DOTALL
+)
 
-def convert_xml_to_excel(xml_path, excel_path):
-    start = time.time()
+products = product_pattern.findall(text)
 
-    print("Reading XML file...")
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+print(f"Found {len(products):,} products")
 
-    ns = get_namespace(root.tag)
+wb = Workbook()
+ws = wb.active
+ws.title = "Products"
 
-    products = root.findall(f".//{ns}product")
-    total = len(products)
+ws.append(["PMHCVS", "PMHSHODES"])
 
-    print(f"Found {total:,} products")
-    print("Starting conversion...\n")
+for i, (product_id, product_body) in enumerate(products, start=1):
+    descriptions = short_desc_pattern.findall(product_body)
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Products"
+    # Keeps exact encoded content, including &lt; &gt; &#13;
+    combined_description = "".join(descriptions)
 
-    # Headers only once
-    ws.append(["PMHCVS", "PMHSHODES"])
+    ws.append([product_id, combined_description])
 
-    for i, product in enumerate(products, start=1):
+    if i % 100 == 0 or i == len(products):
+        print(f"Processed {i:,}/{len(products):,}")
 
-        product_id = product.get("product-id", "").strip()
+print("Saving Excel file...")
+wb.save(output_file)
 
-        descriptions = []
-
-        for sd in product.findall(f".//{ns}short-description"):
-            if sd.text:
-                descriptions.append(sd.text.strip())
-
-        short_desc_combined = " ".join(descriptions)
-
-        ws.append([
-            product_id,
-            short_desc_combined
-        ])
-
-        # Progress every 100 products
-        if i % 100 == 0 or i == total:
-            pct = (i / total) * 100
-            print(f"Processed {i:,}/{total:,} ({pct:.1f}%)")
-
-    print("\nSaving Excel file...")
-    wb.save(excel_path)
-
-    elapsed = time.time() - start
-
-    print("\nDONE")
-    print(f"Saved to: {excel_path}")
-    print(f"Elapsed time: {elapsed:.2f} seconds")
-
-
-if __name__ == "__main__":
-    convert_xml_to_excel(xml_file, output_file)
+print(f"Done. Saved to: {output_file}")
